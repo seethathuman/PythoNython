@@ -24,6 +24,12 @@ class NythonIndentationError(NythonException):
         NythonException.__init__(self, notes=notes)
         self.exception_name = "IndentationError"
 
+class NythonUniplemented(NythonException):
+    """Raised when Nython hasn't implemented a python Feature. No Python Equivelant"""
+    def __init__(self, notes=""):
+        NythonException.__init__(self, notes=notes)
+        self.exception_name = "NythonUnimplemented"
+
 # =============GLOBALS============= #
 linecount = 0
 stack = []
@@ -45,11 +51,11 @@ def raise_exception(exception):
     # ^^^^
     # Exception: notes
     print(f("Stack trace:","; ".join(stack)).replace("\n", "\\n"))
-    print(f("Token trace: [", "],[".join(tokens), "]").replace("\n", "\\n"))
+    print(f("Token trace: ", ", ".join(tokens)).replace("\n", "\\n"))
     print(line)
     print("^"* len(line))
-    if exception.notes: print(f(exception.exception_name, ": ", exception.notes, " at line ", linecount))
-    else:               print(f(exception.exception_name, " at line ", linecount))
+    if exception.notes: print(f(exception.exception_name, ": ", exception.notes, " at line ", linecount + 1))
+    else:               print(f(exception.exception_name, " at line ", linecount + 1))
     exit(exception.handler())
 
 def tokenize(orig):
@@ -74,7 +80,8 @@ def tokenize(orig):
             current_indentation = 0
             if current_token: tokens.append("".join(current_token))
             current_token = []
-            tokens.append(char)
+            if tokens and tokens[-1] != char:
+                tokens.append(char)
             linecount += 1
 
         elif char == "#" or comment:
@@ -149,8 +156,17 @@ def tokenize(orig):
     return tokens
 
 def main(tokens):
-    print(f("tokened code: ", tokens))
-    pass
+    global linecount
+    linecount = 0
+    index = 0
+    while True:
+        token = tokens[index]
+        if token == "=":
+            raise_exception(NythonUniplemented("print unimplemented"))
+        elif token == "\n":
+            linecount += 1
+        index += 1
+
 
 if __name__ == "__main__":
     if len(argv) > 1:
