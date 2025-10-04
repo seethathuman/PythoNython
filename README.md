@@ -1,5 +1,5 @@
 # PythoNython
-work-in-progress python 3 interpereter written in python 2.7
+work-in-progress python 3 interpereter written in python 2.7 in a single file
 
 ## Usage
 to use, run `python ./PythoNython.py` followed by the file to interperet.
@@ -13,4 +13,4 @@ to use, run `python ./PythoNython.py` followed by the file to interperet.
   
 ...also, cause why not?
 
-progress: currently not functional, tokenization and indentation finished
+progress: currently not functional
