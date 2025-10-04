@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 from sys import argv
 
+class NythonInt:
+    """Nython Integer class"""
+    def __init__(self, value):
+        self.value = value
+    def __add__(self, other):
+        return self.value + other
+    def __str__(self):
+        return str(self.value)
+
 class NythonException:
     """Nython Exception. Python-Exception"""
     def __init__(self, notes=""):
@@ -30,8 +39,21 @@ class NythonUniplemented(NythonException):
         NythonException.__init__(self, notes=notes)
         self.exception_name = "NythonUnimplemented"
 
+def print_n(args, kwargs):
+    """print(*objects, sep=' ', end='\n', file=None, flush=False)
+    Print objects to the text stream file, separated by sep and followed by end.
+    sep, end, file, and flush, if present, must be given as keyword arguments. Python-print"""
+    sep = kwargs.get("sep", " ")
+    end = kwargs.get("end", "\n")
+    if kwargs.has_key("flush", "file"):
+        raise_exception(NythonUniplemented("print() currently does not support flush and file kwargs"))
+    args.append(end)
+    text = sep.join(str(args))
+    print(text)
+
 # =============GLOBALS============= #
 linecount = 0
+tokencount = 0
 stack = []
 tokens = []
 mainfile = ""
@@ -50,8 +72,8 @@ def raise_exception(exception):
     # line
     # ^^^^
     # Exception: notes
-    print(f("Stack trace:","; ".join(stack)).replace("\n", "\\n"))
-    print(f("Token trace: ", ", ".join(tokens)).replace("\n", "\\n"))
+    print(f("Stack trace:","; ".join(map(str, stack))).replace("\n", "\\n"))
+    print(f("Token trace: ", ", ".join(map(str, tokens))).replace("\n", "\\n"))
     print(line)
     print("^"* len(line))
     if exception.notes: print(f(exception.exception_name, ": ", exception.notes, " at line ", linecount + 1))
@@ -73,6 +95,7 @@ def tokenize(orig):
     special = {"[":"]",
                "(":")",
                "{":"}"}
+    operations = ["+", "-", "*", "/", "^", "|", "&", ":"]
     i = 0
     while i < len(orig):
         char = orig[i]
@@ -93,6 +116,8 @@ def tokenize(orig):
                 current_indentation += 1
             else:
                 # finished indent
+                if char == "\n": # after indent is newline, skip empty line
+                    continue
                 i -= 1 # we ate up an extra character we need to redo
                 if len(tokens) >= 2 and tokens[-2] == ":": # \n + : = 2 items back indent should increase
                     if current_indentation > indentations[-1]: # indentation should increase
@@ -139,7 +164,7 @@ def tokenize(orig):
             tokens.append(char)
             stack.append(char)
 
-        elif char == ":":
+        elif char in operations:
             if current_token: tokens.append("".join(current_token))
             current_token = []
             tokens.append(char)
@@ -155,17 +180,70 @@ def tokenize(orig):
     if stack: raise_exception(NythonSyntaxError(f("Unexpected end of file, unpaired ", stack[-1])))
     return tokens
 
+def evaluate(tokens, objects, layer, take_elif):
+    global linecount
+    global tokencount
+    global stack
+    current_tk = 0
+
+    token = tokens[current_tk]
+
+    if token == "if" or token == "elif":
+        if token == "elif":
+            if not take_elif:
+                return None
+        line = []
+        while token != ":":
+            current_tk += 1
+            token = tokens[current_tk]
+
+            line.append(token)
+            result = evaluate(line, objects, layer, take_elif)
+            if result:
+                stack.append(-1)
+                layer[0] += 1
+                take_elif[0] = 0
+            else:
+                take_elif[0] = 1
+        return None
+    if token.isdigit():
+        return int(token)
+    raise_exception(NythonUniplemented(f("token ", token, " unimplemented")))
+    return None
+
 def main(tokens):
     global linecount
+    global stack
+    global tokencount
     linecount = 0
-    index = 0
-    while True:
-        token = tokens[index]
-        if token == "=":
-            raise_exception(NythonUniplemented("print unimplemented"))
+    tokens.append("\n") # file end terminator
+    line = []
+    objects = [[]]
+    layer = [0]     # quick alternative to pointer
+    indent = 0
+    take_elif = [0]
+    while tokencount < len(tokens):
+        token = tokens[tokencount]
+        if token == " ":
+            indent += 1
         elif token == "\n":
+            # start executing this line
+            if indent != layer[0]: # we need to skip this line part of a conditional, or an indent has ended
+                if indent > layer[0]: # indent is more than what we should be executing, is a false conditional
+                    tokencount += 1
+                    continue
+                else: # a function, conditional or loop has ended
+                    return_token = stack.pop()
+                    if return_token != -1: # not a conditional
+                        tokencount = return_token
+                        continue
+            evaluate(line, objects, layer, take_elif)
             linecount += 1
-        index += 1
+            indent = 0
+            line = []
+        else:
+            line.append(token)
+        tokencount += 1
 
 
 if __name__ == "__main__":

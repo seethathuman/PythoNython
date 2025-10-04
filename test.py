@@ -1,6 +1,6 @@
 
 if 1:
-    if 1+1 == 2:
+    if 5+5 == 10:
         a = False
         b = True
 c = "hello world"
